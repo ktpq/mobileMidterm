@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/todo.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,6 +15,40 @@ class _HomeScreenState extends State<HomeScreen> {
   final inputController = TextEditingController();
   final List<Todo> _todoList = [];
 
+  @override
+  void initState() {
+    super.initState();
+    // เรียกฟังก์ชันโหลดข้อมูลทันทีที่สร้าง Widget
+    _loadData();
+  }
+
+  // ฟังก์ชันดึงข้อมูลจาก SharedPreferences
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // ดึง List ของ String ออกมา (ถ้าไม่มีให้เป็น null)
+    List<String>? jsonList = prefs.getStringList('todo_data');
+
+    if (jsonList != null) {
+      setState(() {
+        // แปลงจาก List<String> JSON กลับมาเป็น List<Todo>
+        // โดยใช้ map และ Todo.fromMap ที่เราเตรียมไว้ใน Model
+        _todoList.clear();
+        _todoList.addAll(
+          jsonList.map((item) => Todo.fromMap(jsonDecode(item))).toList(),
+        );
+      });
+    }
+  }
+
+  void _savePref() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> dataToSave = _todoList
+        .map((todo) => jsonEncode(todo.toMap()))
+        .toList();
+    await prefs.setStringList("data", dataToSave);
+  }
+
   void _addTodo() {
     if (inputController.text.isNotEmpty) {
       setState(() {
@@ -20,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
         inputController.clear();
       });
       debugPrint("$_todoList");
+      _savePref();
     }
   }
 
@@ -62,6 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         status: _todoList[index].status,
                       );
                     });
+                    _savePref();
                     Navigator.pop(dialogContext);
                   },
                   child: Text("Save"),
@@ -133,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 onPressed: () {
                                   setState(() {
                                     _todoList.removeAt(index);
+                                    _savePref();
                                   });
                                 },
                                 child: Text("Delete"),
